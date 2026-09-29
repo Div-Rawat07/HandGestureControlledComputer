@@ -10,6 +10,22 @@ def is_finger_up(hand_landmarks, tip, pip):
 def is_thumb_up(hand_landmarks):
     return hand_landmarks[4].x > hand_landmarks[3].x
 
+def detect_gesture(thumb_up, index_up, middle_up, ring_up, pinky_up):
+
+    if index_up and not middle_up and not ring_up and not pinky_up:
+        return "POINTING"
+
+    elif not index_up and not middle_up and not ring_up and not pinky_up:
+        return "FIST"
+
+    elif index_up and middle_up and ring_up and pinky_up:
+        return "OPEN HAND"
+
+    elif index_up and middle_up and not ring_up and not pinky_up:
+        return "TWO FINGERS"
+
+    return "UNKNOWN"
+
 
 # Path to the hand landmark model
 MODEL_PATH = "hand_landmarker.task"
@@ -117,6 +133,15 @@ while True:
             print("Pinky finger:", pinky_up)
             print("Finger count:", finger_count)
 
+            gesture = detect_gesture(
+                thumb_up,
+                index_up,
+                middle_up,
+                ring_up,
+                pinky_up
+            )
+
+            print("Gesture:", gesture)
 
             print(
                 "Index Tip:",
@@ -126,8 +151,6 @@ while True:
             )
 
                 
-
-
     # Show webcam
     cv2.imshow(
         "Hand Detection",
