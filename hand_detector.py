@@ -25,6 +25,17 @@ def is_click(hand_landmarks):
 
     return distance < 0.05
 
+def is_right_click(hand_landmarks):
+    thumb = hand_landmarks[4]
+    middle = hand_landmarks[12]
+
+    distance = math.sqrt(
+        (thumb.x - middle.x) ** 2 +
+        (thumb.y - middle.y) ** 2
+    )
+
+    return distance < 0.05
+
 def is_finger_up(hand_landmarks, tip, pip):
     return hand_landmarks[tip].y < hand_landmarks[pip].y
 
@@ -67,12 +78,17 @@ detector = vision.HandLandmarker.create_from_options(options)
 
 # Open webcam
 cap = cv2.VideoCapture(0)
+cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
 prev_x = 0
 prev_y = 0
 
 smoothness = 0.2
 clicking = False
+right_clicking = False
+prev_scroll_y = None
 
 
 while True:
@@ -81,7 +97,7 @@ while True:
     success, frame = cap.read()
 
     if not success:
-        print("❌ Failed to access webcam")
+        print(" Failed to access webcam...")
         break
 
 
@@ -143,7 +159,18 @@ while True:
             elif not click:
                 clicking = False
 
-            print("Click:", click)
+            # print("Click:", click)
+
+            right_click = is_right_click(hand_landmarks)
+
+            if right_click and not right_clicking:
+                pyautogui.rightClick()
+                right_clicking = True
+
+            elif not right_click:
+                right_clicking = False
+
+            # print("Right Click:", right_click)
 
             # Move mouse only when pointing
             if index_up and not middle_up and not ring_up and not pinky_up:
@@ -158,6 +185,29 @@ while True:
 
                 prev_x = smooth_x
                 prev_y = smooth_y
+
+            scroll_mode = index_up and middle_up and not ring_up and not pinky_up
+
+            # print("Scroll Mode:", scroll_mode)
+
+            if scroll_mode:
+
+                current_y = (hand_landmarks[8].y + hand_landmarks[12].y) / 2
+
+                if prev_scroll_y is not None:
+
+                    movement = prev_scroll_y - current_y
+
+                    if movement > 0.02:
+                        pyautogui.scroll(30)
+
+                    elif movement < -0.02:
+                        pyautogui.scroll(-30)
+
+                prev_scroll_y = current_y
+
+            else:
+                prev_scroll_y = None
 
             # Count fingers
             finger_count = 0
@@ -177,12 +227,12 @@ while True:
             if thumb_up:
                 finger_count += 1
 
-            print("Thumb:", thumb_up)
-            print("Index finger:", index_up)
-            print("Middle finger:", middle_up)
-            print("Ring finger:", ring_up)
-            print("Pinky finger:", pinky_up)
-            print("Finger count:", finger_count)
+            # print("Thumb:", thumb_up)
+            # print("Index finger:", index_up)
+            # print("Middle finger:", middle_up)
+            # print("Ring finger:", ring_up)
+            # print("Pinky finger:", pinky_up)
+            # print("Finger count:", finger_count)
 
             gesture = detect_gesture(
                 thumb_up,
@@ -192,14 +242,14 @@ while True:
                 pinky_up
             )
 
-            print("Gesture:", gesture)
+            # print("Gesture:", gesture)
 
-            print(
-                "Index Tip:",
-                index_tip.x,
-                index_tip.y,
-                index_tip.z
-            )
+            # print(
+            #     "Index Tip:",
+            #     index_tip.x,
+            #     index_tip.y,
+            #     index_tip.z
+            # )
 
                 
     # Show webcam
