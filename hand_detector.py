@@ -1,8 +1,29 @@
 import cv2
 import mediapipe as mp
+import pyautogui
 
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
+
+import math
+
+
+screen_width, screen_height = pyautogui.size()
+
+print("Screen:", screen_width, screen_height)
+
+
+
+def is_click(hand_landmarks):
+    thumb = hand_landmarks[4]
+    index = hand_landmarks[8]
+
+    distance = math.sqrt(
+        (thumb.x - index.x) ** 2 +
+        (thumb.y - index.y) ** 2
+    )
+
+    return distance < 0.05
 
 def is_finger_up(hand_landmarks, tip, pip):
     return hand_landmarks[tip].y < hand_landmarks[pip].y
@@ -46,6 +67,12 @@ detector = vision.HandLandmarker.create_from_options(options)
 
 # Open webcam
 cap = cv2.VideoCapture(0)
+
+prev_x = 0
+prev_y = 0
+
+smoothness = 0.2
+clicking = False
 
 
 while True:
@@ -100,13 +127,37 @@ while True:
 
             # Index fingertip = landmark 8
             index_tip = hand_landmarks[8]
-
             index_up = is_finger_up(hand_landmarks, 8, 6)
             middle_up = is_finger_up(hand_landmarks, 12, 10)
             ring_up = is_finger_up(hand_landmarks, 16, 14)
             pinky_up = is_finger_up(hand_landmarks, 20, 18)
             
             thumb_up = is_thumb_up(hand_landmarks)
+
+            click = is_click(hand_landmarks)
+            if click and not clicking:
+                pyautogui.click()
+                clicking = True
+
+
+            elif not click:
+                clicking = False
+
+            print("Click:", click)
+
+            # Move mouse only when pointing
+            if index_up and not middle_up and not ring_up and not pinky_up:
+
+                mouse_x = int(index_tip.x * screen_width)
+                mouse_y = int(index_tip.y * screen_height)
+
+                smooth_x = int(prev_x + (mouse_x - prev_x) * smoothness)
+                smooth_y = int(prev_y + (mouse_y - prev_y) * smoothness)
+
+                pyautogui.moveTo(smooth_x, smooth_y)
+
+                prev_x = smooth_x
+                prev_y = smooth_y
 
             # Count fingers
             finger_count = 0
