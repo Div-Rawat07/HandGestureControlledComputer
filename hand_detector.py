@@ -28,11 +28,6 @@ def is_click(hand_landmarks):
     return pinch_distance(hand_landmarks, 8) < 0.05
 
 
-def is_double_click(hand_landmarks):
-    # Thumb + ring finger = dedicated double-click
-    return pinch_distance(hand_landmarks, 16) < 0.05
-
-
 def is_right_click(hand_landmarks):
     # Thumb + middle finger = right-click
     return pinch_distance(hand_landmarks, 12) < 0.05
@@ -86,7 +81,9 @@ smoothness = 0.3
 # Click state
 left_pinching = False
 right_pinching = False
-double_pinching = False
+last_index_pinch_time = None
+pending_single_click = False
+DOUBLE_PINCH_WINDOW = 0.4  # seconds allowed between two pinches
 
 # Scroll state
 prev_scroll_y = None
@@ -150,7 +147,8 @@ try:
                     # Reset click/scroll states so controls don't stick.
                     left_pinching = False
                     right_pinching = False
-                    double_pinching = False
+                    last_index_pinch_time = None
+                    pending_single_click = False
                     prev_scroll_y = None
                     if paused:
                         pyautogui.mouseUp()
@@ -158,18 +156,30 @@ try:
                 pause_gesture_start = None
 
             if not paused:
-                # Dedicated double-click: pinch thumb + ring finger.
-                double_pinch = is_double_click(hand_landmarks)
-                if double_pinch and not double_pinching:
-                    pyautogui.doubleClick(interval=0.12)
-                    double_pinching = True
-                elif not double_pinch:
-                    double_pinching = False
-
-                # Left-click: quick thumb + index pinch.
+                # Thumb + index pinch: one pinch = left-click; two quick pinches = double-click.
                 click = is_click(hand_landmarks)
+                now = time.time()
+
+                # If a first pinch is still waiting and the double-pinch window expires,
+                # complete it as a normal single-click.
+                if pending_single_click and last_index_pinch_time is not None:
+                    if now - last_index_pinch_time > DOUBLE_PINCH_WINDOW:
+                        pyautogui.click()
+                        pending_single_click = False
+                        last_index_pinch_time = None
+
                 if click and not left_pinching:
-                    pyautogui.click()
+                    if (
+                        pending_single_click
+                        and last_index_pinch_time is not None
+                        and now - last_index_pinch_time <= DOUBLE_PINCH_WINDOW
+                    ):
+                        pyautogui.doubleClick(interval=0.12)
+                        pending_single_click = False
+                        last_index_pinch_time = None
+                    else:
+                        pending_single_click = True
+                        last_index_pinch_time = now
                     left_pinching = True
                 elif not click:
                     left_pinching = False
